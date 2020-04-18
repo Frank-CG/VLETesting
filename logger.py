@@ -7,6 +7,10 @@ from constant import LOG_DIR
 # create log dir
 if not os.path.exists(LOG_DIR):
     os.makedirs(LOG_DIR)
+# remove all files under log dir
+fileList = os.listdir(LOG_DIR)
+for fileName in fileList:
+    os.remove(LOG_DIR+fileName)
 
 # get log file name
 LOG_FILE = LOG_DIR + "log" + '-' + datetime.datetime.today().strftime('%Y%m%d-%H%M%S') + '.log'
