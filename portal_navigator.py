@@ -10,13 +10,28 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import NoSuchElementException
 from selenium.common.exceptions import TimeoutException
 from logger import get_logger
+from portal_operator import PortalOperator
 
 class Navigator:
     def __init__(self, driver):
         self.driver = driver
+        self.operator = PortalOperator(driver)
         self.waiter = WebDriverWait(driver, 3)
         self.logger = get_logger()
     
+    def nav_to_toptab(self, top_tab_name):
+        xpath_str = '//a/label[text()="'+top_tab_name+'"]/..'
+        locator = (By.XPATH, xpath_str)
+        return self.operator.click(locator)
+
+    def nav_to_group(self, group_name):
+        xpath_str = '//ul/li[@class="jstree-node  jstree-last jstree-closed"]'
+        locator = (By.XPATH, xpath_str)
+        self.operator.click(locator)
+        xpath_str = '//a[text()="'+group_name+'"]'
+        locator = (By.XPATH, xpath_str)
+        return self.operator.click(locator)
+
     def get_waiter(self,timeout):
         return WebDriverWait(self.driver, timeout)
     

@@ -9,15 +9,19 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import NoSuchElementException
 from selenium.common.exceptions import TimeoutException
 from portal_navigator import Navigator
+from portal_operator import PortalOperator
 from logger import get_logger
+from constant import RESOURCE_DIR
 
 @pytest.fixture(scope="module")
 def setup_cloud_services():
-    global driver, waiter, navigator, logger
+    global driver, waiter, navigator, operator, logger
+    global images
+    images = [RESOURCE_DIR+"images/test-img-01.jpeg",RESOURCE_DIR+"images/test-img-02.jpeg",RESOURCE_DIR+"images/test-img-03.jpeg"]
     logger = get_logger()
     driver = webdriver.Chrome()
     waiter = WebDriverWait(driver, 5)
-    navigator = Navigator(driver)
+    operator = PortalOperator(driver)
     driver.get("https://v-admin-qa.videri.com/icanvases")
     element = waiter.until(EC.presence_of_element_located((By.ID, "loginForm:username")))
     element.send_keys("nicole555")
@@ -25,13 +29,15 @@ def setup_cloud_services():
     element.send_keys("Videri123QA")
     element = driver.find_element_by_id("loginForm:loginButton")
     element.click()
-    element = waiter.until(EC.presence_of_element_located((By.ID, "icanvas-selector")))
+    locator = (By.ID, "icanvas-selector")
+    operator.wait_for(locator)
+    
 
 @pytest.mark.usefixtures("setup_cloud_services")
 class TestVLECloudServicesScheduler:
     
     def validOnCanvas(self, error_message="Canvas showing is NOT correct!"):
-        time.sleep(5)
+        time.sleep(10)
         # value = input("\nConfirm canvas is behaving right: (['','y','yes','Y','YES'])\n")
         # assert value in ["","y","yes","Y","YES"], error_message
 
@@ -58,137 +64,74 @@ class TestVLECloudServicesScheduler:
     @pytest.mark.scheduler
     def test_C7182(self):
         logger.info("test case: C7182 begins...")
-        element = driver.find_element_by_css_selector('div.search-input input')
-        element.send_keys("nicole")
-        element = waiter.until(EC.presence_of_element_located((By.XPATH, "//*[text()='QA-nicole-Vmodule']")))
-        element.click()
-        element = waiter.until(EC.presence_of_element_located((By.CSS_SELECTOR, "div.slots > div")))
+        locator = (By.CSS_SELECTOR, 'div.search-input input')
+        operator.search(locator, "DPC-460TW1-180310016001")
+        locator = (By.XPATH, "//*[text()='DPC-460TW1-180310016001']")
+        operator.click(locator)
+        locator = (By.CSS_SELECTOR, "div.slots > div")
+        operator.wait_for(locator)
+
+        def valid(days_elements, offset):
+            elements = days_elements.find_elements_by_tag_name('div')
+            assert len(elements) == 7, error_message
+            d_today = date.today()
+            d_today = d_today + timedelta(days=offset)
+            str_today = d_today.strftime("%a (%m/%d)")
+            assert elements[0].text == str_today, error_message
+            d_today = d_today + timedelta(days=6)
+            str_today = d_today.strftime("%a (%m/%d)")
+            assert elements[6].text == str_today, error_message
+            operator.wait_for(timeout=1)
+        
+        def step_check(error_message, locator, offset):
+            operator.click(locator)        
+            locator = (By.CSS_SELECTOR, "div.days")
+            (fl, el) = operator.select(locator)
+            assert fl, error_message
+            valid(el, offset)
+
         #Step 1
-        element = waiter.until(EC.presence_of_element_located((By.XPATH, "//button[normalize-space()='7 Day View']")))
-        element.click()
-        flag = True
         error_message = "(7 Day View) button doesn't work."
-        try:
-            element = waiter.until(EC.presence_of_element_located((By.CSS_SELECTOR, "div.days")))
-        except (NoSuchElementException,TimeoutException):
-            flag = False
-            logger.error(error_message)
-        assert flag, error_message
-        elements = element.find_elements_by_tag_name('div')
-        assert len(elements) == 7, error_message
-        # elements.sort(key=lambda el: el.text)
-        d_today = date.today()
-        str_today = d_today.strftime("%a (%m/%d)")
-        assert elements[0].text == str_today, error_message
-        d_today = d_today + timedelta(days=6)
-        str_today = d_today.strftime("%a (%m/%d)")
-        assert elements[6].text == str_today, error_message
-        time.sleep(2)
+        locator = (By.XPATH, "//button[normalize-space()='7 Day View']")
+        step_check(error_message, locator, 0)
 
         #Step 2
-        element = waiter.until(EC.presence_of_element_located((By.XPATH, "//button[@title='Previous Day']")))
-        element.click()
-        flag = True
         error_message = "(Previous Day) button doesn't work."
-        try:
-            element = waiter.until(EC.presence_of_element_located((By.CSS_SELECTOR, "div.days")))
-        except (NoSuchElementException,TimeoutException):
-            flag = False
-            logger.error(error_message)
-        assert flag, error_message
-        elements = element.find_elements_by_tag_name('div')
-        assert len(elements) == 7, error_message
-        # elements.sort(key=lambda el: el.text)
-        d_today = date.today()
-        d_today = d_today + timedelta(days=-1)
-        str_today = d_today.strftime("%a (%m/%d)")
-        assert elements[0].text == str_today, error_message
-        d_today = d_today + timedelta(days=6)
-        str_today = d_today.strftime("%a (%m/%d)")
-        assert elements[6].text == str_today, error_message
-        time.sleep(2)
+        locator = (By.XPATH, "//button[@title='Previous Day']")
+        step_check(error_message, locator, -1)
 
         #Step 3
-        element = waiter.until(EC.presence_of_element_located((By.XPATH, "//button[@title='Next Day']")))
-        element.click()
-        flag = True
         error_message = "(Next Day) button doesn't work."
-        try:
-            element = waiter.until(EC.presence_of_element_located((By.CSS_SELECTOR, "div.days")))
-        except (NoSuchElementException,TimeoutException):
-            flag = False
-            logger.error(error_message)
-        assert flag, error_message
-        elements = element.find_elements_by_tag_name('div')
-        assert len(elements) == 7, error_message
-        # elements.sort(key=lambda el: el.text)
-        d_today = date.today()
-        str_today = d_today.strftime("%a (%m/%d)")
-        assert elements[0].text == str_today, error_message
-        d_today = d_today + timedelta(days=6)
-        str_today = d_today.strftime("%a (%m/%d)")
-        assert elements[6].text == str_today, error_message
-        time.sleep(2)
+        locator = (By.XPATH, "//button[@title='Next Day']")
+        step_check(error_message, locator, 0)
 
         #Step 4
-        element = waiter.until(EC.presence_of_element_located((By.XPATH, "//button[@title='Previous Week']")))
-        element.click()
-        flag = True
-        error_message = "(Next Day) button doesn't work."
-        try:
-            element = waiter.until(EC.presence_of_element_located((By.CSS_SELECTOR, "div.days")))
-        except (NoSuchElementException,TimeoutException):
-            flag = False
-            logger.error(error_message)
-        assert flag, error_message
-        elements = element.find_elements_by_tag_name('div')
-        assert len(elements) == 7, error_message
-        # elements.sort(key=lambda el: el.text)
-        d_today = date.today()
-        d_today = d_today + timedelta(days=-7)
-        str_today = d_today.strftime("%a (%m/%d)")
-        assert elements[0].text == str_today, error_message
-        d_today = d_today + timedelta(days=6)
-        str_today = d_today.strftime("%a (%m/%d)")
-        assert elements[6].text == str_today, error_message
-        time.sleep(2)
+        error_message = "(Previous Week) button doesn't work."
+        locator = (By.XPATH, "//button[@title='Previous Week']")
+        step_check(error_message, locator, -7)
 
         #Step 5
-        element = waiter.until(EC.presence_of_element_located((By.XPATH, "//button[@title='Next Week']")))
-        element.click()
-        flag = True
-        error_message = "(Next Day) button doesn't work."
-        try:
-            element = waiter.until(EC.presence_of_element_located((By.CSS_SELECTOR, "div.days")))
-        except (NoSuchElementException,TimeoutException):
-            flag = False
-            logger.error(error_message)
-        assert flag, error_message
-        elements = element.find_elements_by_tag_name('div')
-        assert len(elements) == 7, error_message
-        # elements.sort(key=lambda el: el.text)
-        d_today = date.today()
-        str_today = d_today.strftime("%a (%m/%d)")
-        assert elements[0].text == str_today, error_message
-        d_today = d_today + timedelta(days=6)
-        str_today = d_today.strftime("%a (%m/%d)")
-        assert elements[6].text == str_today, error_message
+        error_message = "(Next Week) button doesn't work."
+        locator = (By.XPATH, "//button[@title='Next Week']")
+        step_check(error_message, locator, 0)
 
-        time.sleep(5)                
-        # value = input("Please confirm testing result (Empty as pass):\n")
-        # assert value in ["","y","yes","Y","YES"]
+        operator.wait_for(timeout=5)
         logger.info("Test case: C7182 successfully pass.")
 
 
     def save_event(self):
         xpath_str = '//div[@class="search-input"]/label/input'
-        navigator.nav_search(xpath_str, "nicole")
-        xpath_str = '//div[text()="QA-nicole-Vmodule"]/../../td[@class="double-line"]/i'
-        navigator.nav_to_by_xpath(xpath_str)
+        locator = (By.XPATH, xpath_str)
+        operator.search(locator, "DPC-460TW1-180310016001")
+        xpath_str = '//div[text()="DPC-460TW1-180310016001"]/../../td[@class="double-line"]/i'
+        locator = (By.XPATH, xpath_str)
+        operator.click(locator)
         xpath_str = '//button[@id="save-event"]'
-        navigator.nav_to_by_xpath(xpath_str)
+        locator = (By.XPATH, xpath_str)
+        operator.click(locator)
         xpath_str = '//div[text()="Your changes have been saved."]'
-        (fl, el) = navigator.select_by_xpath(xpath_str, navigator.get_waiter(20))
+        locator = (By.XPATH, xpath_str)
+        (fl, el) = operator.select(locator, waiter=operator.get_waiter(20))
         return fl
 
     '''
@@ -213,98 +156,117 @@ class TestVLECloudServicesScheduler:
     @pytest.mark.scheduler
     def test_C7183(self):
         def validation():
-            navigator.nav_to('Canvases')
+            operator.nav_to_toptab('Canvases')
             xpath_str = '//div[@class="search-input"]/label/input'
-            navigator.nav_search(xpath_str, "nicole")
-            xpath_str = '//div[text()="QA-nicole-Vmodule"]/../..'
-            navigator.nav_to_by_xpath(xpath_str)
+            locator = (By.XPATH, xpath_str)
+            operator.search(locator, "DPC-460TW1-180310016001")
+            xpath_str = '//div[text()="DPC-460TW1-180310016001"]/../..'
+            locator = (By.XPATH, xpath_str)
+            operator.click(locator)
             error_message = "Events showing error."
 
             xpath_str = '//div[contains(@class, "critical-alert")]'
-            (fl,el) = navigator.select_by_xpath(xpath_str)
+            locator = (By.XPATH, xpath_str)
+            (fl,el) = operator.select(locator)
             assert fl,error_message
             rgba = el.value_of_css_property('background-color')
             assert rgba == 'rgba(228, 0, 0, 1)', error_message
             
             xpath_str = '//div[contains(@class, "domination")]'
-            (fl,el) = navigator.select_by_xpath(xpath_str)
+            locator = (By.XPATH, xpath_str)
+            (fl,el) = operator.select(locator)
             assert fl,error_message
             rgba = el.value_of_css_property('background-color')
             assert rgba == 'rgba(126, 126, 126, 1)', error_message
             
             xpath_str = '//div[contains(@class, "playlist")]'
-            (fl,el) = navigator.select_by_xpath(xpath_str)
+            locator = (By.XPATH, xpath_str)
+            (fl,el) = operator.select(locator)
             assert fl,error_message
             rgba = el.value_of_css_property('background-color')
             assert rgba == 'rgba(15, 173, 182, 1)', error_message
             
             xpath_str = '//div[contains(@class, "event  event even")]'
-            (fl,el) = navigator.select_by_xpath(xpath_str)
+            locator = (By.XPATH, xpath_str)
+            (fl,el) = operator.select(locator)
             assert fl,error_message
             rgba = el.value_of_css_property('background-color')
             assert rgba == 'rgba(241, 108, 78, 1)', error_message
 
         logger.info("test case: C7183 begins...")
-        navigator.nav_to('Projects')
-        navigator.select_group('Nicole group')
+        operator.nav_to_toptab('Projects')
+        operator.nav_to_group('Nicole group')
         xpath_str = '//td/div[text()="Nicole group, V3PO_75c9f6d8-cc79-4b95-ac90-f8c7f9038a88"]'
-        navigator.nav_to_by_xpath(xpath_str)
+        locator = (By.XPATH, xpath_str)
+        operator.click(locator)
 
         error_message = "Schedule saving error."
         #Schedule asset 'Normal'
         xpath_str = '//a[text()="Assets"]'
-        navigator.nav_to_by_xpath(xpath_str)
+        locator = (By.XPATH, xpath_str)
+        operator.click(locator)
         xpath_str = '//div[@class="search-input"]/label/input'
-        navigator.nav_search(xpath_str, "1440x2560jpg")
+        locator = (By.XPATH, xpath_str)
+        operator.search(locator, "1440x2560jpg")
         xpath_str = '//table[@id="asset-selector"]/tbody/tr/td/div/span[@class="asset-name" and text()="1440x2560jpg"]/../../../td[@class="list-action left-col"]/div/div/i[@title="Schedule"]'
-        navigator.nav_to_by_xpath(xpath_str)
+        locator = (By.XPATH, xpath_str)
+        operator.click(locator)
         xpath_str = '//div[@id="priority-container"]//select/option[@value="Normal"]'
-        navigator.select_by_xpath(xpath_str)
+        locator = (By.XPATH, xpath_str)
+        operator.wait_for(locator)
         assert self.save_event(), error_message
 
         #Schedule asset 'Playlist'
         xpath_str = '//a[text()="Playlists"]'
-        navigator.nav_to_by_xpath(xpath_str)
+        locator = (By.XPATH, xpath_str)
+        operator.click(locator)
         xpath_str = '//div[text()="asdas"]/../../td[@class="list-action left-col"]/div/div/i[@title="Schedule"]'
-        navigator.nav_to_by_xpath(xpath_str)
+        locator = (By.XPATH, xpath_str)
+        operator.click(locator)
         xpath_str = '//div[@id="priority-container"]//select/option[@value="Normal"]'
-        navigator.select_by_xpath(xpath_str)
+        locator = (By.XPATH, xpath_str)
+        operator.wait_for(locator)
         assert self.save_event(), error_message
 
         #Schedule asset 'Domination'
         xpath_str = '//a[text()="Assets"]'
-        navigator.nav_to_by_xpath(xpath_str)
+        locator = (By.XPATH, xpath_str)
+        operator.click(locator)
         xpath_str = '//div[@class="search-input"]/label/input'
-        navigator.nav_search(xpath_str, "sienna-piazza-48x48")
+        locator = (By.XPATH, xpath_str)
+        operator.search(locator, "sienna-piazza-48x48")
         xpath_str = '//table[@id="asset-selector"]/tbody/tr/td/div/span[@class="asset-name" and text()="sienna-piazza-48x48"]/../../../td[@class="list-action left-col"]/div/div/i[@title="Schedule"]'
-        navigator.nav_to_by_xpath(xpath_str)
+        locator = (By.XPATH, xpath_str)
+        operator.click(locator)
         xpath_str = '//div[@id="priority-container"]//select/option[@value="Domination"]'
-        (fl,el) = navigator.select_by_xpath(xpath_str)
+        locator = (By.XPATH, xpath_str)
+        (fl,el) = operator.select(locator)
         if fl:
             el.click()
         assert self.save_event(), error_message
 
         #Schedule asset 'Critical Alert'
         xpath_str = '//a[text()="Assets"]'
-        navigator.nav_to_by_xpath(xpath_str)
+        locator = (By.XPATH, xpath_str)
+        operator.click(locator)
         xpath_str = '//div[@class="search-input"]/label/input'
-        navigator.nav_search(xpath_str, "terra_incognita_tara_leaver")
+        locator = (By.XPATH, xpath_str)
+        operator.search(locator, "terra_incognita_tara_leaver")
         xpath_str = '//table[@id="asset-selector"]/tbody/tr/td/div/span[@class="asset-name" and text()="terra_incognita_tara_leaver"]/../../../td[@class="list-action left-col"]/div/div/i[@title="Schedule"]'
-        navigator.nav_to_by_xpath(xpath_str)
+        locator = (By.XPATH, xpath_str)
+        operator.click(locator)
         xpath_str = '//div[@id="priority-container"]//select/option[@value="Critical Alert"]'
-        (fl,el) = navigator.select_by_xpath(xpath_str)
+        locator = (By.XPATH, xpath_str)
+        (fl,el) = operator.select(locator)
         if fl:
             el.click()
         assert self.save_event(), error_message
-
-        time.sleep(5)
+        operator.wait_for(timeout=5)
 
         #Validation
         validation()
+        operator.wait_for(timeout=5)
 
-        time.sleep(5)
-        # value = input("Please confirm testing result (Empty as pass):\n")
-        # assert value in ["","y","yes","Y","YES"]
         logger.info("Test case: C7183 successfully pass.")
 
     '''
@@ -329,34 +291,42 @@ class TestVLECloudServicesScheduler:
     @pytest.mark.scheduler
     def test_C7185(self):
         logger.info("test case: C7185 begins...")
-        navigator.nav_to('Projects')
+        operator.nav_to_toptab('Projects')
         xpath_str = '//td/div[text()="Nicole group, V3PO_75c9f6d8-cc79-4b95-ac90-f8c7f9038a88"]'
-        navigator.nav_to_by_xpath(xpath_str)
+        locator = (By.XPATH, xpath_str)
+        operator.click(locator)
         xpath_str = '//a[text()="Layouts"]'
-        navigator.nav_to_by_xpath(xpath_str)
+        locator = (By.XPATH, xpath_str)
+        operator.click(locator)
 
         #Step 1
         xpath_str = '//button[@id="activate-thumbnails-view-btn"]'
-        navigator.nav_to_by_xpath(xpath_str)
+        locator = (By.XPATH, xpath_str)
+        operator.click(locator)
         error_message = "Failed: Verify the page switches to multiple thumbnails."
         xpath_str = '//div[@id="search-results"]/ul[@id="layout-thumbnails"]'
-        (fl,el) = navigator.select_by_xpath(xpath_str)
+        locator = (By.XPATH, xpath_str)
+        (fl,el) = operator.select(locator)
         assert fl, error_message
 
         #Step 2
         error_message = "Failed: Verify a header appears with buttons."
         xpath_str = '//ul[@id="layout-thumbnails"]/li/div[text()="layout-tag"]/..'
-        navigator.opr_mouseover(xpath_str)
+        locator = (By.XPATH, xpath_str)
+        operator.mouseover(locator)
         xpath_str = xpath_str+'/div[@class="actions"]'
-        (fl,el) = navigator.select_by_xpath(xpath_str)
+        locator = (By.XPATH, xpath_str)
+        (fl,el) = operator.select(locator)
         assert fl, error_message
 
         #Step 3
         error_message = "Failed: Verify the user is brought to the layout's event page."
         xpath_str = xpath_str + '/i[@title="Schedule Layout"]'
-        navigator.nav_to_by_xpath(xpath_str)
+        locator = (By.XPATH, xpath_str)
+        operator.click(locator)
         xpath_str = '//div[@id="priority-container"]//select/option[@value="Normal"]'
-        (fl,el) = navigator.select_by_xpath(xpath_str)
+        locator = (By.XPATH, xpath_str)
+        (fl,el) = operator.select(locator)
         assert fl, error_message
 
         #Step 4
@@ -391,47 +361,58 @@ class TestVLECloudServicesScheduler:
     def test_C7186(self):
         logger.info("test case: C7186 begins...")
         
-        navigator.nav_to('Canvases')
+        operator.nav_to_toptab('Canvases')
         xpath_str = '//div[@class="search-input"]/label/input'
-        navigator.nav_search(xpath_str, "nicole")
-        xpath_str = '//div[text()="QA-nicole-Vmodule"]/../..'
-        navigator.nav_to_by_xpath(xpath_str)
+        locator = (By.XPATH, xpath_str)
+        operator.search(locator, "DPC-460TW1-180310016001")
+        xpath_str = '//div[text()="DPC-460TW1-180310016001"]/../..'
+        locator = (By.XPATH, xpath_str)
+        operator.click(locator)
         xpath_str = '//button[normalize-space()="1 Day View"]'
-        navigator.nav_to_by_xpath(xpath_str)
+        locator = (By.XPATH, xpath_str)
+        operator.click(locator)
 
-        #Step 1
+        #Step 1 //div[@class="explicit_slot"]/div[@class="slot"]
         error_message = "Failed: Verify that the user is redirected to the selected event's page."
-        xpath_str = '//div[contains(@class,"event-content") and text()="layout-tag"]/i'
-        navigator.nav_to_by_xpath(xpath_str)
+        xpath_str = '//div[contains(@class,"event-content")]/i'
+        locator = (By.XPATH, xpath_str)
+        (fl, els) = operator.select_all(locator)
+        assert fl and len(els) > 0
+        els[0].click()
         xpath_str = '//div[@id="priority-container"]//select/option[@value="Normal"]'
-        (fl,el) = navigator.select_by_xpath(xpath_str)
+        locator = (By.XPATH, xpath_str)
+        (fl,el) = operator.select(locator)
         assert fl, error_message
 
         #Step 2
         error_message = "Failed: Verify that a confirmation prompt appears with the following message: 'Delete this event? This operation cannot be undone.'"
         xpath_str = '//button[@id="delete-event"]'
-        navigator.nav_to_by_xpath(xpath_str)
+        locator = (By.XPATH, xpath_str)
+        operator.click(locator)
         xpath_str = '//div[@class="bootbox-body" and text()="Delete this  event?"]'
-        (fl,el) = navigator.select_by_xpath(xpath_str)
+        locator = (By.XPATH, xpath_str)
+        (fl,el) = operator.select(locator)
         assert fl, error_message
 
         #Step 3
         error_message = "Failure for expected : "
-        xpath_str = xpath_str + '/../../div[@class="modal-footer"]/button[text()="Ok"]'
-        navigator.nav_to_by_xpath(xpath_str)
         expected = "'Deleting...' bar appears at the top;"
-        xpath_str = '//div[text()="Deleting..."]'
-        (fl,el) = navigator.select_by_xpath(xpath_str)
+        xpath_str = xpath_str + '/../../div[@class="modal-footer"]/button[text()="Ok"]'
+        locator = (By.XPATH, xpath_str)
+        check_locator = (By.XPATH, '//div[text()="Deleting..."]')
+        fl = operator.click_and_check(locator, check_locator)
         assert fl, error_message + expected
 
         expected = "The user is redirected back to the 'Schedule' tab;"
         xpath_str = '//li[@id="schedule" and contains(@class,"active")]'
-        (fl,el) = navigator.select_by_xpath(xpath_str, navigator.get_waiter(5))
+        locator = (By.XPATH, xpath_str)
+        (fl,el) = operator.select(locator, operator.get_waiter(5))
         assert fl, error_message + expected
 
         expected = "The deleted event is no longer present on the grid within 3 minutes;"
         xpath_str = '//div[contains(@class,"event-content") and text()="layout-tag"]/i'
-        (fl,el) = navigator.select_by_xpath(xpath_str, navigator.get_waiter(1))
+        locator = (By.XPATH, xpath_str)
+        (fl,el) = operator.select(locator, operator.get_waiter(1))
         assert fl == False, error_message + expected
 
         expected = "The deleted event stops playing on the iCanvas within 3 minutes."
@@ -454,11 +435,74 @@ class TestVLECloudServicesScheduler:
             1 - Verify that the scheduled image displays on the iCanvas.
             2 - Verify that the image stops being displayed on the screen and that its related event is no longer visible on the schedule's grid within 3 minutes.
     '''
-    @pytest.mark.scheduler
+    @pytest.mark.scheduler_cur
     def test_C7187(self):
         logger.info("test case: C7187 begins...")
+        image_full_path = images[0]
+        image_file_name = 'test-img-01'
+
+        operator.nav_to_group('Nicole group')
+
+        operator.nav_to_toptab('Projects')        
+        xpath_str = '//div[@class="search-input"]/label/input'
+        locator = (By.XPATH, xpath_str)
+        operator.search(locator, "nicole-group-at")
+        xpath_str = '//div[text()="nicole-group-at"]/../..'
+        locator = (By.XPATH, xpath_str)
+        operator.click(locator)
+        operator.drag_and_drop_file(image_full_path)
+        xpath_str = '//span[text()="Upload"]/..'
+        locator = (By.XPATH, xpath_str)
+        operator.click(locator)
+        xpath_str = '//table[@id="asset-selector"]/tbody/tr/td/div/span[@class="asset-name" and text()="'+image_file_name+'"]/../../../td[@class="list-action left-col"]/div/div/i[@title="Delete"]'
+        assert operator.wait_for((By.XPATH, xpath_str), 10)
+
+        #Step 1 - Schedule an image on any online iCanvas.
+        error_message = "Schedule saving error."
+        xpath_str = '//a[text()="Assets"]'
+        locator = (By.XPATH, xpath_str)
+        operator.click(locator)
+        xpath_str = '//div[@class="search-input"]/label/input'
+        locator = (By.XPATH, xpath_str)
+        operator.search(locator, image_file_name)
+        xpath_str = '//table[@id="asset-selector"]/tbody/tr/td/div/span[@class="asset-name" and text()="'+image_file_name+'"]/../../../td[@class="list-action left-col"]/div/div/i[@title="Schedule"]'
+        locator = (By.XPATH, xpath_str)
+        operator.click(locator)
+        xpath_str = '//div[@id="priority-container"]//select/option[@value="Normal"]'
+        locator = (By.XPATH, xpath_str)
+        operator.wait_for(locator)
+        assert self.save_event(), error_message
+
+        error_message = "Failure for expected : 1 - Verify that the scheduled image displays on the iCanvas."
+        self.validOnCanvas(error_message)
+
+        #Step 2 - Delete the image from its project folder and open the "Schedule" tab of the iCanvas.
+        operator.nav_to_toptab('Projects')        
+        xpath_str = '//div[@class="search-input"]/label/input'
+        locator = (By.XPATH, xpath_str)
+        operator.search(locator, "nicole-group-at")
+        xpath_str = '//div[text()="nicole-group-at"]/../..'
+        locator = (By.XPATH, xpath_str)
+        operator.click(locator)
+        xpath_str = '//a[text()="Assets"]'
+        locator = (By.XPATH, xpath_str)
+        operator.click(locator)
+        xpath_str = '//div[@class="search-input"]/label/input'
+        locator = (By.XPATH, xpath_str)
+        operator.search(locator, image_file_name)
+        xpath_str = '//table[@id="asset-selector"]/tbody/tr/td/div/span[@class="asset-name" and text()="'+image_file_name+'"]/../../../td[@class="list-action left-col"]/div/div/i[@title="Delete"]'
+        locator = (By.XPATH, xpath_str)
+        operator.click(locator)
+        xpath_str = '//div[@class="modal-footer"]/button[text()="Ok"]'
+        locator = (By.XPATH, xpath_str)
+        operator.click(locator)
+
+        error_message = "Failure for expected : Verify that the image stops being displayed on the screen and that its related event is no longer visible on the schedule's grid within 3 minutes."
+        self.validOnCanvas()
+        
+
         logger.info("Test case: C7187 successfully pass.")
 
-    @pytest.mark.scheduler
+    @pytest.mark.scheduler_cur
     def test_finial(self):
         driver.close()

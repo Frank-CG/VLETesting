@@ -9,14 +9,16 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import NoSuchElementException
 from selenium.common.exceptions import TimeoutException
 from portal_navigator import Navigator
+from portal_operator import PortalOperator
 from logger import get_logger
 
 def setup_cloud_services():
-    global driver, waiter, navigator, logger
+    global driver, waiter, navigator, operator, logger
     logger = get_logger()
     driver = webdriver.Chrome()
     waiter = WebDriverWait(driver, 5)
     navigator = Navigator(driver)
+    operator = PortalOperator(driver)
     driver.get("https://v-admin-qa.videri.com/icanvases")
     element = waiter.until(EC.presence_of_element_located((By.ID, "loginForm:username")))
     element.send_keys("nicole555")
@@ -24,7 +26,8 @@ def setup_cloud_services():
     element.send_keys("Videri123QA")
     element = driver.find_element_by_id("loginForm:loginButton")
     element.click()
-    element = waiter.until(EC.presence_of_element_located((By.ID, "icanvas-selector")))
+    locator = (By.ID, "icanvas-selector")
+    operator.waitfor(locator)
 
 def test_C7182(self):
     logger.info("test case: C7182 begins...")
@@ -349,10 +352,17 @@ def test_C7186():
     assert fl == False, error_message + ": " + expected
 
 
+xpath_str = '//ul[@class="jstree-container-ul jstree-children"]/li[contains(@class,"jstree-closed")]/i'
+locator = (By.XPATH, xpath_str)
+operator.select(locator)
+operator.click(locator)
+group_name = 'Nicole group'
+xpath_str = '//a[text()="'+group_name+'"]'
+locator = (By.XPATH, xpath_str)
+operator.click(locator)
 
 
-
-
+operator.nav_to_group('Nicole group')
 
 
 
@@ -736,3 +746,10 @@ import sys
 del sys.modules['portal_navigator']
 from portal_navigator import Navigator
 navigator = Navigator(driver)
+
+
+
+import sys
+del sys.modules['portal_operator']
+from portal_operator import PortalOperator
+operator = PortalOperator(driver)
